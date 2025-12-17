@@ -1,0 +1,47 @@
+# PostgreSQL container image configuration
+image:
+  repository: postgres
+  tag: "16-alpine"
+  pullPolicy: IfNotPresent
+
+# Database credentials configuration
+# These values are used to create a Kubernetes Secret (postgres-credentials)
+# The secret is referenced by postgres deployment, migration/seed jobs, and API service
+database:
+  name: appdb
+  user: appuser
+  password: devpassword
+
+# Service configuration for internal database access
+service:
+  port: 5432
+
+# Persistent storage configuration
+persistence:
+  enabled: true
+  size: 1Gi
+
+# Resource limits and requests
+resources:
+  limits:
+    cpu: 500m
+    memory: 512Mi
+  requests:
+    cpu: 100m
+    memory: 128Mi
+
+# Database migration job configuration
+# Runs after install/upgrade with hook weight 0 (before seed)
+migration:
+  enabled: true
+  image:
+    repository: postgres
+    tag: "16-alpine"
+
+# Database seed job configuration
+# Runs after install/upgrade with hook weight 10 (after migration)
+seed:
+  enabled: false
+  image:
+    repository: postgres
+    tag: "16-alpine"

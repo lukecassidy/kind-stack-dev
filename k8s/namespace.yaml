@@ -1,0 +1,12 @@
+# DEPRECATED: This file is no longer used by the Makefile.
+# Namespace is now created dynamically based on the NAMESPACE variable.
+# To change the namespace, set NAMESPACE=<your-namespace> when running make commands,
+# or configure it in .env.local
+#
+# Example: make deploy NAMESPACE=staging
+#
+# This file is kept for reference only and can be safely deleted.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: dev

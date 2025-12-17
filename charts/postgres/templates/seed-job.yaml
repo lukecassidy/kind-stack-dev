@@ -1,0 +1,82 @@
+{{- if .Values.seed.enabled }}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: postgres-seed-{{ .Release.Revision }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: postgres-seed
+  annotations:
+    # Helm hooks: Run after install/upgrade, weight 10 runs after migration (weight 0)
+    "helm.sh/hook": post-install,post-upgrade
+    "helm.sh/hook-weight": "10"
+    "helm.sh/hook-delete-policy": before-hook-creation
+spec:
+  template:
+    metadata:
+      labels:
+        app: postgres-seed
+    spec:
+      restartPolicy: Never
+      initContainers:
+      - name: wait-for-postgres
+        image: "{{ .Values.seed.image.repository }}:{{ .Values.seed.image.tag }}"
+        command:
+        - sh
+        - -c
+        - |
+          until pg_isready -h postgres -U $POSTGRES_USER; do
+            echo "Waiting for postgres..."
+            sleep 2
+          done
+          echo "Postgres is ready!"
+        env:
+        - name: POSTGRES_USER
+          valueFrom:
+            secretKeyRef:
+              name: postgres-credentials
+              key: POSTGRES_USER
+        - name: PGPASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: postgres-credentials
+              key: POSTGRES_PASSWORD
+      containers:
+      - name: seed
+        image: "{{ .Values.seed.image.repository }}:{{ .Values.seed.image.tag }}"
+        command:
+        - sh
+        - -c
+        - |
+          echo "Seeding database with sample data..."
+          psql -h postgres -U $POSTGRES_USER -d $POSTGRES_DB -f /seed/seed.sql
+          if [ $? -eq 0 ]; then
+            echo "✓ Database seeded successfully"
+          else
+            echo "✗ Database seeding failed"
+            exit 1
+          fi
+        env:
+        - name: POSTGRES_USER
+          valueFrom:
+            secretKeyRef:
+              name: postgres-credentials
+              key: POSTGRES_USER
+        - name: POSTGRES_DB
+          valueFrom:
+            secretKeyRef:
+              name: postgres-credentials
+              key: POSTGRES_DB
+        - name: PGPASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: postgres-credentials
+              key: POSTGRES_PASSWORD
+        volumeMounts:
+        - name: seed
+          mountPath: /seed
+      volumes:
+      - name: seed
+        configMap:
+          name: postgres-seed
+{{- end }}

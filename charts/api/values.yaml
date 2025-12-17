@@ -1,0 +1,79 @@
+# Deployment mode: real or mock
+mode: real
+
+replicaCount: 1
+
+service:
+  type: ClusterIP
+  port: 8080
+
+ingress:
+  enabled: true
+  className: nginx
+  path: /api
+  pathType: ImplementationSpecific
+
+# Real API configuration (mode: real)
+real:
+  image:
+    repository: api-service
+    tag: latest
+    pullPolicy: IfNotPresent
+
+  # Database connection settings
+  # Credentials are retrieved from postgres-credentials Secret via secretKeyRef
+  # Only host and port are configured here
+  database:
+    host: postgres
+    port: 5432
+
+  resources:
+    limits:
+      cpu: 500m
+      memory: 256Mi
+    requests:
+      cpu: 100m
+      memory: 128Mi
+
+  livenessProbe:
+    httpGet:
+      path: /health
+      port: 8080
+    initialDelaySeconds: 10
+    periodSeconds: 10
+
+  readinessProbe:
+    httpGet:
+      path: /health
+      port: 8080
+    initialDelaySeconds: 5
+    periodSeconds: 5
+
+# Mock API configuration (mode: mock)
+mock:
+  image:
+    repository: wiremock/wiremock
+    tag: 3.3.1
+    pullPolicy: IfNotPresent
+
+  resources:
+    limits:
+      cpu: 200m
+      memory: 128Mi
+    requests:
+      cpu: 50m
+      memory: 64Mi
+
+  livenessProbe:
+    httpGet:
+      path: /health
+      port: 8080
+    initialDelaySeconds: 10
+    periodSeconds: 10
+
+  readinessProbe:
+    httpGet:
+      path: /health
+      port: 8080
+    initialDelaySeconds: 5
+    periodSeconds: 5

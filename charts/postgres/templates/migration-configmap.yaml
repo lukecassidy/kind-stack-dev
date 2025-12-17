@@ -1,0 +1,38 @@
+{{- if .Values.migration.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: postgres-migrations
+  namespace: {{ .Release.Namespace }}
+data:
+  001_init_schema.sql: |
+    -- Initial schema migration
+    CREATE TABLE IF NOT EXISTS users (
+      id SERIAL PRIMARY KEY,
+      username VARCHAR(50) UNIQUE NOT NULL,
+      email VARCHAR(100) UNIQUE NOT NULL,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );
+
+    CREATE TABLE IF NOT EXISTS posts (
+      id SERIAL PRIMARY KEY,
+      user_id INTEGER REFERENCES users(id),
+      title VARCHAR(200) NOT NULL,
+      content TEXT,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_posts_user_id ON posts(user_id);
+
+  002_add_status.sql: |
+    -- Add status column to posts
+    DO $$
+    BEGIN
+      IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_name='posts' AND column_name='status'
+      ) THEN
+        ALTER TABLE posts ADD COLUMN status VARCHAR(20) DEFAULT 'draft';
+      END IF;
+    END $$;
+{{- end }}

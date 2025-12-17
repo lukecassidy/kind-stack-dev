@@ -1,0 +1,36 @@
+# Podinfo container image configuration
+image:
+  repository: stefanprodan/podinfo
+  tag: 6.7.0
+  pullPolicy: IfNotPresent
+
+# Service configuration
+service:
+  port: 9898
+
+# Ingress configuration for external access
+ingress:
+  enabled: true
+  className: nginx
+  # Path is dynamically set to /{{ .Release.Name }} if not specified
+  # For custom paths, set this value (e.g., path: /custom-path)
+  path: ""
+  pathType: ImplementationSpecific
+
+# Liveness probe checks if container is running
+# Uses /healthz endpoint provided by podinfo
+livenessProbe:
+  httpGet:
+    path: /healthz
+    port: 9898
+  initialDelaySeconds: 10
+  periodSeconds: 10
+
+# Readiness probe checks if container can accept traffic
+# Uses /readyz endpoint provided by podinfo
+readinessProbe:
+  httpGet:
+    path: /readyz
+    port: 9898
+  initialDelaySeconds: 5
+  periodSeconds: 5

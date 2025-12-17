@@ -1,0 +1,23 @@
+{{- if .Values.seed.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: postgres-seed
+  namespace: {{ .Release.Namespace }}
+data:
+  seed.sql: |
+    -- Seed data for local development
+    INSERT INTO users (username, email) VALUES
+      ('alice', 'alice@example.com'),
+      ('bob', 'bob@example.com'),
+      ('charlie', 'charlie@example.com')
+    ON CONFLICT (username) DO NOTHING;
+
+    INSERT INTO posts (user_id, title, content, status) VALUES
+      (1, 'Getting Started with Kubernetes', 'Kubernetes is a powerful container orchestration platform...', 'published'),
+      (1, 'Helm Charts Best Practices', 'When creating Helm charts, consider these best practices...', 'published'),
+      (2, 'Local Development with KIND', 'KIND makes it easy to run Kubernetes locally...', 'published'),
+      (2, 'Service Mesh Basics', 'A service mesh provides traffic management...', 'draft'),
+      (3, 'Database Migrations in K8s', 'Managing database migrations in Kubernetes...', 'draft')
+    ON CONFLICT DO NOTHING;
+{{- end }}

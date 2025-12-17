@@ -1,0 +1,7 @@
+# Local environment configuration
+.env.local
+
+# macOS system files
+**/.DS_Store
+
+scratch*

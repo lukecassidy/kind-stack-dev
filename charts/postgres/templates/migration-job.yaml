@@ -1,0 +1,86 @@
+{{- if .Values.migration.enabled }}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: postgres-migration-{{ .Release.Revision }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: postgres-migration
+  annotations:
+    # Helm hooks: Run after install/upgrade, weight 0 runs before seed (weight 10)
+    "helm.sh/hook": post-install,post-upgrade
+    "helm.sh/hook-weight": "0"
+    "helm.sh/hook-delete-policy": before-hook-creation
+spec:
+  template:
+    metadata:
+      labels:
+        app: postgres-migration
+    spec:
+      restartPolicy: Never
+      initContainers:
+      - name: wait-for-postgres
+        image: "{{ .Values.migration.image.repository }}:{{ .Values.migration.image.tag }}"
+        command:
+        - sh
+        - -c
+        - |
+          until pg_isready -h postgres -U $POSTGRES_USER; do
+            echo "Waiting for postgres..."
+            sleep 2
+          done
+          echo "Postgres is ready!"
+        env:
+        - name: POSTGRES_USER
+          valueFrom:
+            secretKeyRef:
+              name: postgres-credentials
+              key: POSTGRES_USER
+        - name: PGPASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: postgres-credentials
+              key: POSTGRES_PASSWORD
+      containers:
+      - name: migrate
+        image: "{{ .Values.migration.image.repository }}:{{ .Values.migration.image.tag }}"
+        command:
+        - sh
+        - -c
+        - |
+          echo "Running database migrations..."
+          for file in /migrations/*.sql; do
+            echo "Applying migration: $(basename $file)"
+            psql -h postgres -U $POSTGRES_USER -d $POSTGRES_DB -f "$file"
+            if [ $? -eq 0 ]; then
+              echo "✓ Migration $(basename $file) completed successfully"
+            else
+              echo "✗ Migration $(basename $file) failed"
+              exit 1
+            fi
+          done
+          echo "All migrations completed successfully!"
+        env:
+        - name: POSTGRES_USER
+          valueFrom:
+            secretKeyRef:
+              name: postgres-credentials
+              key: POSTGRES_USER
+        - name: POSTGRES_DB
+          valueFrom:
+            secretKeyRef:
+              name: postgres-credentials
+              key: POSTGRES_DB
+        - name: PGPASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: postgres-credentials
+              key: POSTGRES_PASSWORD
+        volumeMounts:
+        - name: migrations
+          mountPath: /migrations
+      volumes:
+      - name: migrations
+        configMap:
+          name: postgres-migrations
+{{- end }}

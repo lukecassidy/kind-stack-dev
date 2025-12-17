@@ -1,0 +1,83 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: api
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: api
+    app.kubernetes.io/name: {{ .Chart.Name }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/version: {{ .Chart.AppVersion | quote }}
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+    mode: {{ .Values.mode }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      app: api
+  template:
+    metadata:
+      labels:
+        app: api
+        app.kubernetes.io/name: {{ .Chart.Name }}
+        app.kubernetes.io/instance: {{ .Release.Name }}
+        app.kubernetes.io/version: {{ .Chart.AppVersion | quote }}
+        mode: {{ .Values.mode }}
+    spec:
+      containers:
+{{- if eq .Values.mode "real" }}
+      - name: api
+        image: "{{ .Values.real.image.repository }}:{{ .Values.real.image.tag }}"
+        imagePullPolicy: {{ .Values.real.image.pullPolicy }}
+        ports:
+        - containerPort: 8080
+          name: http
+        env:
+        - name: DB_HOST
+          value: {{ .Values.real.database.host }}
+        - name: DB_PORT
+          value: "{{ .Values.real.database.port }}"
+        - name: DB_NAME
+          valueFrom:
+            secretKeyRef:
+              name: postgres-credentials
+              key: POSTGRES_DB
+        - name: DB_USER
+          valueFrom:
+            secretKeyRef:
+              name: postgres-credentials
+              key: POSTGRES_USER
+        - name: DB_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: postgres-credentials
+              key: POSTGRES_PASSWORD
+        resources:
+          {{- toYaml .Values.real.resources | nindent 10 }}
+        livenessProbe:
+          {{- toYaml .Values.real.livenessProbe | nindent 10 }}
+        readinessProbe:
+          {{- toYaml .Values.real.readinessProbe | nindent 10 }}
+{{- else if eq .Values.mode "mock" }}
+      - name: wiremock
+        image: "{{ .Values.mock.image.repository }}:{{ .Values.mock.image.tag }}"
+        imagePullPolicy: {{ .Values.mock.image.pullPolicy }}
+        ports:
+        - containerPort: 8080
+          name: http
+        args:
+          - --verbose
+        volumeMounts:
+          - name: mappings
+            mountPath: /home/wiremock/mappings
+        resources:
+          {{- toYaml .Values.mock.resources | nindent 10 }}
+        livenessProbe:
+          {{- toYaml .Values.mock.livenessProbe | nindent 10 }}
+        readinessProbe:
+          {{- toYaml .Values.mock.readinessProbe | nindent 10 }}
+      volumes:
+        - name: mappings
+          configMap:
+            name: {{ .Release.Name }}-mappings
+{{- end }}
